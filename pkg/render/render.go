@@ -31,7 +31,7 @@ func RenderTemplate(w http.ResponseWriter, tmpl string, td *models.TemplateData)
 		tc = app.TemplateCache
 	} else {
 		log.Println("New rendering of template", tmpl)
-		tc, _ = CreteTemplateCache()
+		tc, _ = CreateTemplateCache()
 	}
 
 	// get requested template from cache
