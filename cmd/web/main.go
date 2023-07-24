@@ -28,7 +28,7 @@ func main() {
 
 	app.Session = session
 
-	tc, err := render.CreteTemplateCache()
+	tc, err := render.CreateTemplateCache()
 	if err != nil {
 		log.Fatal(err)
 	}
