@@ -1,3 +1,7 @@
+:root {
+    --bs-body-font-family: 'Montserrat', sans-serif;
+}
+
 .my-footer {
     height: 5em;
     background-color: #2a2a2a;
