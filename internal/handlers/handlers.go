@@ -124,8 +124,10 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		Email:     r.Form.Get("email"),
 		Phone:     r.Form.Get("phone"),
 	}
+
 	form := forms.New(r.PostForm)
 
+	// validate form, add errors
 	form.Required("first_name", "last_name", "email")
 	form.MinLength("first_name", 2, r)
 	form.IsEmail("email")
@@ -147,11 +149,18 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 func (m *Repository) ReservationSummary(w http.ResponseWriter, r *http.Request) {
 	reservation, ok := m.App.Session.Get(r.Context(), "reservation").(models.Reservation)
 	if !ok {
-		log.Println("Couldn't retrieve reservation item from session")
+		errorMsg := "Couldn't retrieve reservation item from session"
+		log.Println(errorMsg)
+		m.App.Session.Put(r.Context(), "error", errorMsg)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
+
+	m.App.Session.Remove(r.Context(), "reservation")
+
 	data := make(map[string]interface{})
 	data["reservation"] = reservation
+
 	render.RenderTemplate(w, r, "reservation-summary.page.tmpl", &models.TemplateData{
 		Data: data,
 	})
