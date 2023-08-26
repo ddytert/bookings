@@ -1,2 +1,6 @@
 .DS_Store
 .idea
+run.sh
+database.yml
+bookings
+coverage.out

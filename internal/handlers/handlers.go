@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/ddytert/bookings/internal/config"
 	"github.com/ddytert/bookings/internal/forms"
+	"github.com/ddytert/bookings/internal/helpers"
 	"github.com/ddytert/bookings/internal/models"
 	"github.com/ddytert/bookings/internal/render"
-	"log"
 	"net/http"
 )
 
@@ -33,24 +33,13 @@ func NewHandlers(r *Repository) {
 
 // Home shows the welcome message
 func (m *Repository) Home(w http.ResponseWriter, r *http.Request) {
-	remoteIP := r.RemoteAddr
-	m.App.Session.Put(r.Context(), "remote_ip", remoteIP)
-
 	render.RenderTemplate(w, r, "home.page.tmpl", &models.TemplateData{})
 }
 
 // About returns the about page
 func (m *Repository) About(w http.ResponseWriter, r *http.Request) {
-	// perform some business logic
-	stringMap := map[string]string{}
-	stringMap["test"] = "Hello, again!"
-
-	remoteIP := m.App.Session.GetString(r.Context(), "remote_ip")
-	stringMap["remote_ip"] = remoteIP
 	// send the data to the template
-	render.RenderTemplate(w, r, "about.page.tmpl", &models.TemplateData{
-		StringMap: stringMap,
-	})
+	render.RenderTemplate(w, r, "about.page.tmpl", &models.TemplateData{})
 }
 
 // Generals renders the generals room page
@@ -89,7 +78,8 @@ func (m *Repository) AvailabilityJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := json.MarshalIndent(resp, "", "     ")
 	if err != nil {
-		log.Println(err)
+		helpers.ServerError(w, err)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -101,7 +91,7 @@ func (m *Repository) Contact(w http.ResponseWriter, r *http.Request) {
 	render.RenderTemplate(w, r, "contact.page.tmpl", &models.TemplateData{})
 }
 
-// Reservation renders the contact page
+// Reservation renders the reservation page
 func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 	emptyReservation := models.Reservation{}
 	data := make(map[string]interface{})
@@ -116,7 +106,7 @@ func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
-		log.Println("Error parsing post form request:", err)
+		helpers.ServerError(w, err)
 	}
 	reservation := models.Reservation{
 		FirstName: r.Form.Get("first_name"),
@@ -129,10 +119,10 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 
 	// validate form, add errors
 	form.Required("first_name", "last_name", "email")
-	form.MinLength("first_name", 2, r)
+	form.MinLength("first_name", 2)
 	form.IsEmail("email")
 
-	if !form.Valid(r) {
+	if !form.Valid() {
 		data := make(map[string]interface{})
 		data["reservation"] = reservation
 
@@ -149,8 +139,8 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 func (m *Repository) ReservationSummary(w http.ResponseWriter, r *http.Request) {
 	reservation, ok := m.App.Session.Get(r.Context(), "reservation").(models.Reservation)
 	if !ok {
-		errorMsg := "Couldn't retrieve reservation item from session"
-		log.Println(errorMsg)
+		errorMsg := "Can't get reservation from session"
+		m.App.ErrorLog.Println(errorMsg)
 		m.App.Session.Put(r.Context(), "error", errorMsg)
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
