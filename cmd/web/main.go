@@ -3,16 +3,18 @@ package main
 import (
 	"encoding/gob"
 	"fmt"
-	"github.com/alexedwards/scs/v2"
-	"github.com/ddytert/bookings/internal/config"
-	"github.com/ddytert/bookings/internal/handlers"
-	"github.com/ddytert/bookings/internal/helpers"
-	"github.com/ddytert/bookings/internal/models"
-	"github.com/ddytert/bookings/internal/render"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/alexedwards/scs/v2"
+	"github.com/ddytert/bookings/internal/config"
+	"github.com/ddytert/bookings/internal/driver"
+	"github.com/ddytert/bookings/internal/handlers"
+	"github.com/ddytert/bookings/internal/helpers"
+	"github.com/ddytert/bookings/internal/models"
+	"github.com/ddytert/bookings/internal/render"
 )
 
 const portNumber = ":8080"
@@ -23,10 +25,11 @@ var infoLog *log.Logger
 var errorLog *log.Logger
 
 func main() {
-	err := run()
+	db, err := run()
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer db.SQL.Close()
 
 	fmt.Println("Starting Webserver on port", portNumber)
 
@@ -38,9 +41,12 @@ func main() {
 	log.Fatal(err)
 }
 
-func run() error {
+func run() (*driver.DB, error) {
 	// what am I going to put in the session
 	gob.Register(models.Reservation{})
+	gob.Register(models.User{})
+	gob.Register(models.Room{})
+	gob.Register(models.Restriction{})
 
 	// change this to true when in production
 	app.InProduction = false
@@ -58,18 +64,26 @@ func run() error {
 
 	app.Session = session
 
+	// Connect to database
+	log.Println("Connecting to database")
+	db, err := driver.ConnectSQL("host=localhost port=5432 dbname=bookings user=ddytert password=")
+	if err != nil {
+		log.Fatal("Cannot connect to database! Dying...")
+	}
+	log.Println("Connected to database!")
+
 	tc, err := render.CreateTemplateCache()
 	if err != nil {
 		log.Println("Cannot create template cache")
-		return err
+		return nil, err
 	}
 	app.TemplateCache = tc
 	app.UseCache = false
 
-	repo := handlers.NewRepo(&app)
+	repo := handlers.NewRepo(&app, db)
 	handlers.NewHandlers(repo)
-	render.NewTemplates(&app)
+	render.NewRenderer(&app)
 	helpers.NewHelpers(&app)
 
-	return nil
+	return db, nil
 }
