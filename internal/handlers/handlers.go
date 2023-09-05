@@ -70,6 +70,33 @@ func (m *Repository) PostAvailability(w http.ResponseWriter, r *http.Request) {
 	start := r.Form.Get("start")
 	end := r.Form.Get("end")
 
+	// 31.08.2023 -- 01/02 03:04:05PM '06 -0700
+	layout := "02.01.2006"
+	startDate, err := time.Parse(layout, start)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+	endDate, err := time.Parse(layout, end)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	rooms, err := m.DB.SearchAvailibilityForAllRooms(startDate, endDate)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	if len(rooms) == 0 {
+		errorMsg := "Sorry, there are no rooms available during this period."
+		m.App.ErrorLog.Println(errorMsg)
+		m.App.Session.Put(r.Context(), "error", errorMsg)
+		http.Redirect(w, r, "/search-availability", http.StatusSeeOther)
+		return
+	}
+
 	w.Write([]byte(fmt.Sprintf("Start date is %s and end date is %s", start, end)))
 }
 
@@ -122,7 +149,7 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 	ed := r.Form.Get("end_date")
 
 	// 2023-08-31 -- 01/02 03:04:05PM '06 -0700
-	layout := "2006-01-02"
+	layout := "02.01.2006"
 	startDate, err := time.Parse(layout, sd)
 	if err != nil {
 		helpers.ServerError(w, err)
@@ -182,7 +209,7 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		RestrictionID: 1,
 	}
 
-	err = m.DB.InsertRoomRetriction(restriction)
+	err = m.DB.InsertRoomRestriction(restriction)
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
