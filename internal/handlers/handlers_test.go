@@ -2,10 +2,11 @@ package handlers
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -127,12 +128,13 @@ func TestRepository_PostReservation(t *testing.T) {
 		EndDate:   endDate,
 	}
 	// prepare form post data
-	reqBody := "first_name=Dan"
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "last_name=Deiers")
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "email=dan@deiers.de")
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "phone=0049157344658392")
+	postedData := url.Values{}
+	postedData.Add("first_name", "Dan")
+	postedData.Add("last_name", "Deiers")
+	postedData.Add("email", "dan@deiers.de")
+	postedData.Add("phone", "0049157344658392")
 
-	body := strings.NewReader(reqBody)
+	body := strings.NewReader(postedData.Encode())
 
 	req, _ := http.NewRequest("POST", "/make-reservation", body)
 	ctx := getCtx(req)
@@ -181,12 +183,13 @@ func TestRepository_PostReservation(t *testing.T) {
 	}
 
 	// test for invalid form data
-	reqBody = "first_name=Dan"
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "last_name=Deiers")
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "email=invalid")
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "phone=0049157344658392")
+	postedData = url.Values{}
+	postedData.Add("first_name", "Dan")
+	postedData.Add("last_name", "Deiers")
+	postedData.Add("email", "invalid")
+	postedData.Add("phone", "0049157344658392")
 
-	body = strings.NewReader(reqBody)
+	body = strings.NewReader(postedData.Encode())
 
 	req, _ = http.NewRequest("POST", "/make-reservation", body)
 	ctx = getCtx(req)
@@ -205,12 +208,13 @@ func TestRepository_PostReservation(t *testing.T) {
 	// Test failing of insertion of reservation into db
 	reservation.RoomID = 777
 
-	reqBody = "first_name=Dan"
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "last_name=Deiers")
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "email=dan@deiers.de")
-	reqBody = fmt.Sprintf("%s&%s", reqBody, "phone=0049157344658392")
+	postedData = url.Values{}
+	postedData.Add("first_name", "Dan")
+	postedData.Add("last_name", "Deiers")
+	postedData.Add("email", "dan@deiers.de")
+	postedData.Add("phone", "0049157344658392")
 
-	body = strings.NewReader(reqBody)
+	body = strings.NewReader(postedData.Encode())
 
 	req, _ = http.NewRequest("POST", "/make-reservation", body)
 	ctx = getCtx(req)
@@ -229,7 +233,7 @@ func TestRepository_PostReservation(t *testing.T) {
 	// Test failing of insertion of restriction into db
 	reservation.RoomID = 555
 
-	body.Reset(reqBody)
+	body.Reset(postedData.Encode())
 	req, _ = http.NewRequest("POST", "/make-reservation", body)
 	ctx = getCtx(req)
 	req = req.WithContext(ctx)
@@ -244,6 +248,83 @@ func TestRepository_PostReservation(t *testing.T) {
 		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
 	}
 
+}
+
+func TestRepository_AvailabilityJSON(t *testing.T) {
+	// first case - rooms are not available
+	postedData := url.Values{}
+	postedData.Add("start", "27.10.2050")
+	postedData.Add("end", "31.10.2050")
+	postedData.Add("room_id", "1")
+
+	// create request
+	req, _ := http.NewRequest("POST", "search-availability-json", strings.NewReader((postedData.Encode())))
+	ctx := getCtx(req)
+	req = req.WithContext(ctx)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	handler := http.HandlerFunc(Repo.AvailabilityJSON)
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	var j jsonResponse
+	err := json.Unmarshal(rr.Body.Bytes(), &j)
+
+	if err != nil {
+		t.Error("failed to parse json")
+	}
+	// room should not be available otherwise throw an error
+	if j.OK {
+		t.Error("room should not be available")
+	} else if j.Message != "" {
+		t.Error("message should be empty")
+	}
+
+	// test invalid body
+	postedData = url.Values{}
+
+	req, _ = http.NewRequest("POST", "search-availability-json", strings.NewReader((postedData.Encode())))
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	err = json.Unmarshal([]byte(rr.Body.String()), &j)
+
+	if err != nil {
+		t.Error("failed to parse json")
+	}
+	// body should be unreadable, so an internal server error should be given back
+	if j.Message != "Internal server error" {
+		t.Error("Response should conatain Internal server error")
+	}
+
+	// test failing database request
+	postedData = url.Values{}
+	postedData.Add("start", "27.10.2050")
+	postedData.Add("end", "31.10.2050")
+	postedData.Add("room_id", "777")
+
+	req, _ = http.NewRequest("POST", "search-availability-json", strings.NewReader((postedData.Encode())))
+	ctx = getCtx(req)
+	req = req.WithContext(ctx)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	err = json.Unmarshal([]byte(rr.Body.String()), &j)
+
+	if err != nil {
+		t.Error("failed to parse json")
+	}
+	// an database connection error should be given back
+	if j.Message != "Error connecting to database" {
+		t.Error("Response should conatain Error connecting to database")
+	}
 }
 
 func getCtx(req *http.Request) context.Context {
