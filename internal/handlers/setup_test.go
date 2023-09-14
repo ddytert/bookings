@@ -25,7 +25,7 @@ var session *scs.SessionManager
 var pathToTemplates = "./../../templates"
 
 func TestMain(m *testing.M) {
-// what am I going to put in the session
+	// what am I going to put in the session
 	gob.Register(models.Reservation{})
 
 	// change this to true when in production
@@ -44,6 +44,12 @@ func TestMain(m *testing.M) {
 
 	app.Session = session
 
+	mailChan := make(chan models.MailData)
+	app.MailChan = mailChan
+	defer close(mailChan)
+
+	listenForMail()
+
 	tc, err := CreateTestTemplateCache()
 	if err != nil {
 		log.Println("Cannot create template cache")
@@ -56,6 +62,15 @@ func TestMain(m *testing.M) {
 	render.NewRenderer(&app)
 
 	os.Exit(m.Run())
+}
+
+func listenForMail() {
+	go func() {
+		for {
+			app.InfoLog.Println("Sending Email!")
+			_ = <-app.MailChan
+		}
+	}()
 }
 
 func getRoutes() http.Handler {
