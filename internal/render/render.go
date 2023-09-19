@@ -8,11 +8,16 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"github.com/ddytert/bookings/internal/config"
 	"github.com/ddytert/bookings/internal/models"
 	"github.com/justinas/nosurf"
 )
+
+var functions = template.FuncMap{
+	"humanDate": HumanDate,
+}
 
 var app *config.AppConfig
 var pathToTemplates = "./templates"
@@ -22,12 +27,20 @@ func NewRenderer(a *config.AppConfig) {
 	app = a
 }
 
+// HumanDate returns date in DD-MM-YYYY
+func HumanDate(t time.Time) string {
+	return t.Format("02.01.2006")
+}
+
 func AddDefaultData(td *models.TemplateData, r *http.Request) *models.TemplateData {
 	td.Flash = app.Session.PopString(r.Context(), "flash")
 	td.Warning = app.Session.PopString(r.Context(), "warning")
 	td.Error = app.Session.PopString(r.Context(), "error")
-
 	td.CSRFToken = nosurf.Token(r)
+
+	if app.Session.Exists(r.Context(), "user_id") {
+		td.IsAuthenticated = 1
+	}
 	return td
 }
 
@@ -80,7 +93,7 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 	// range through all files ending with *.page.tmpl
 	for _, page := range pages {
 		name := filepath.Base(page)
-		ts, err := template.New(name).ParseFiles(page)
+		ts, err := template.New(name).Funcs(functions).ParseFiles(page)
 		if err != nil {
 			return myCache, err
 		}
