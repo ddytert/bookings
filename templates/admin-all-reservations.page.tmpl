@@ -16,21 +16,21 @@ All Reservations
         <thead>
             <tr>
                 <th>ID</th>
-                <th>First Name</th>
                 <th>Last Name</th>
+                <th>First Name</th>
                 <th>Room</th>
-                <th>Arrival</th>
-                <th>Departure</th>
+                <th data-type="date" data-format="DD.MM.YYYY">Arrival</th>
+                <th data-type="date" data-format="DD.MM.YYYY">Departure</th>
             </tr>
         </thead>
         <tbody>
             {{range $res}}
             <tr>
                 <td>{{.ID}}</td>
-                <td>{{.FirstName}}</td>
                 <td>
                     <a href="/admin/reservations/all/{{.ID}}">{{.LastName}}</a>
                 </td>
+                <td>{{.FirstName}}</td>
                 <td>{{.Room.RoomName}}</td>
                 <td>{{humanDate .StartDate}}</td>
                 <td>{{humanDate .EndDate}}</td>
@@ -47,7 +47,9 @@ All Reservations
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         const dataTable = new simpleDatatables.DataTable("#all-res", {
-            select: 4, sort: "desc",
+            columns: [
+                { select: 4, sort: "asc" },
+            ]
         });
     });
 </script>

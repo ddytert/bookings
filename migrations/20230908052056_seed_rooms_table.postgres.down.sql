@@ -1,1 +1,1 @@
-DELETE FROM rooms;
+DELETE FROM public.rooms WHERE id=1 OR id=2;

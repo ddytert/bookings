@@ -38,7 +38,7 @@
                                name="last_name" value="{{$res.LastName}}" required>
                     </div>
 
-                    <div class="email">
+                    <div class="form-group">
                         <label for="email">Email:</label>
                         {{with .Form.Errors.Get "email"}}
                             <label class="text-danger">{{.}}</label>
@@ -47,7 +47,7 @@
                                id="email" type="email" autocomplete="off"
                                name="email" value="{{$res.Email}}" required>
                     </div>
-                    <div class="phone">
+                    <div class="form-group">
                         <label for="phone">Phone number:</label>
                         {{with .Form.Errors.Get "phone"}}
                             <label class="text-danger">{{.}}</label>
