@@ -478,6 +478,22 @@ func (m *Repository) AdminNewReservations(w http.ResponseWriter, r *http.Request
 	})
 }
 
+// AdminAllReservations shows all reservations in admin tool
+func (m *Repository) AdminAllReservations(w http.ResponseWriter, r *http.Request) {
+	reservations, err := m.DB.AllReservations()
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	data := make(map[string]interface{})
+	data["reservations"] = reservations
+
+	render.Template(w, r, "admin-all-reservations.page.tmpl", &models.TemplateData{
+		Data: data,
+	})
+}
+
 func (m *Repository) AdminShowReservation(w http.ResponseWriter, r *http.Request) {
 	reservationID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
@@ -489,7 +505,7 @@ func (m *Repository) AdminShowReservation(w http.ResponseWriter, r *http.Request
 	stringMap := make(map[string]string)
 	stringMap["src"] = src
 
-	reservation, err := m.DB.ReservationByID(reservationID)
+	reservation, err := m.DB.GetReservationByID(reservationID)
 
 	if err != nil {
 		helpers.ServerError(w, err)
@@ -505,20 +521,79 @@ func (m *Repository) AdminShowReservation(w http.ResponseWriter, r *http.Request
 	})
 }
 
-// AdminAllReservations shows all reservations in admin tool
-func (m *Repository) AdminAllReservations(w http.ResponseWriter, r *http.Request) {
-	reservations, err := m.DB.AllReservations()
+func (m *Repository) AdminPostShowReservation(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
 	}
 
-	data := make(map[string]interface{})
-	data["reservations"] = reservations
+	reservationID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
 
-	render.Template(w, r, "admin-all-reservations.page.tmpl", &models.TemplateData{
-		Data: data,
-	})
+	src := chi.URLParam(r, "src")
+	stringMap := make(map[string]string)
+	stringMap["src"] = src
+
+	reservation, err := m.DB.GetReservationByID(reservationID)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+	reservation.FirstName = r.Form.Get("first_name")
+	reservation.LastName = r.Form.Get("last_name")
+	reservation.Email = r.Form.Get("email")
+	reservation.Phone = r.Form.Get("phone")
+
+	err = m.DB.UpdateReservation(reservation)
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	m.App.Session.Put(r.Context(), "flash", "Successfully updated reservation")
+	http.Redirect(w, r, fmt.Sprintf("/admin/reservations-%s", src), http.StatusSeeOther)
+}
+
+// AdminProcessReservation marks a reservation as processed
+func (m *Repository) AdminProcessReservation(w http.ResponseWriter, r *http.Request) {
+	resID, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	src := chi.URLParam(r, "src")
+
+	err := m.DB.UpdateProcessedForReservation(resID, 1)
+
+	var msgType, msg string
+	if err != nil {
+		msgType = "error"
+		msg = fmt.Sprintf("Couldn't update processed flag - Error: %s", err)
+	} else {
+		msgType = "flash"
+		msg = "Reservation marked as processed"
+	}
+	m.App.Session.Put(r.Context(), msgType, msg)
+	http.Redirect(w, r, fmt.Sprintf("/admin/reservations-%s", src), http.StatusSeeOther)
+}
+
+// AdminDeleteReservation deletes a reservation
+func (m *Repository) AdminDeleteReservation(w http.ResponseWriter, r *http.Request) {
+	resID, _ := strconv.Atoi(chi.URLParam(r, "id"))
+	src := chi.URLParam(r, "src")
+
+	err := m.DB.DeleteReservation(resID)
+
+	var msgType, msg string
+	if err != nil {
+		msgType = "error"
+		msg = fmt.Sprintf("Couldn't delete reservation - Error: %s", err)
+	} else {
+		msgType = "flash"
+		msg = "Reservation deleted!"
+	}
+	m.App.Session.Put(r.Context(), msgType, msg)
+	http.Redirect(w, r, fmt.Sprintf("/admin/reservations-%s", src), http.StatusSeeOther)
 }
 
 // AdminReservationsCalendar displays the reservations calendar

@@ -80,8 +80,23 @@ func (m *testDBRepo) AllNewReservations() ([]models.Reservation, error) {
 }
 
 // ReservationByID returns a reservation by id
-func (m *testDBRepo) ReservationByID(reservationID int) (models.Reservation, error) {
+func (m *testDBRepo) GetReservationByID(reservationID int) (models.Reservation, error) {
 	var reservation models.Reservation
 
 	return reservation, nil
+}
+
+// UpdateReservation updates a reservation in the database
+func (m *testDBRepo) UpdateReservation(res models.Reservation) error {
+	return nil
+}
+
+// DeleteReservation deletes one reservation by id
+func (m *testDBRepo) DeleteReservation(id int) error {
+	return nil
+}
+
+// UpdateProcessedForReservation update processed for a reservation by id
+func (m *testDBRepo) UpdateProcessedForReservation(id int, processed int) error {
+	return nil
 }
