@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ddytert/bookings/internal/models"
-	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/crypto/bcrypt" 
 )
 
 func (m *postgresDBRepo) AllUsers() bool {
