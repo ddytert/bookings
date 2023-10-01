@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ddytert/bookings/internal/models"
-	"golang.org/x/crypto/bcrypt" 
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (m *postgresDBRepo) AllUsers() bool {
@@ -403,4 +403,86 @@ func (m *postgresDBRepo) UpdateProcessedForReservation(id int, processed int) er
 
 	_, err := m.DB.ExecContext(ctx, query, processed, id)
 	return err
+}
+
+func (m *postgresDBRepo) AllRooms() ([]models.Room, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var rooms []models.Room
+
+	query := `select id, room_name, created_at, updated_at from rooms`
+
+	rows, err := m.DB.QueryContext(ctx, query)
+	if err != nil {
+		return rooms, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var room models.Room
+		err := rows.Scan(
+			&room.ID,
+			&room.RoomName,
+			&room.CreatedAt,
+			&room.UpdatedAt,
+		)
+		if err != nil {
+			return rooms, err
+		}
+		rooms = append(rooms, room)
+	}
+	if err = rows.Err(); err != nil {
+		return rooms, err
+	}
+
+	return rooms, nil
+
+}
+
+// GetRestrictionsForRoomByDate gets all restrictions for a given room in the given date range
+func (m *postgresDBRepo) GetRestrictionsForRoomByDate(roomID int, start, end time.Time) ([]models.RoomRestriction, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	var restrictions []models.RoomRestriction
+
+	query := `
+	select
+		rr.id, rr.start_date, rr.end_date, rr.room_id, rr.reservation_id, rr.restriction_id,
+		rr.created_at, rr.updated_at
+	from
+		room_restrictions rr
+	 where
+	 	rr.room_id = $1 and $2 < rr.end_date and $3 > rr.start_date
+	 `
+
+	rows, err := m.DB.QueryContext(ctx, query, roomID, start, end)
+	if err != nil {
+		return restrictions, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		rest := models.RoomRestriction{}
+		err := rows.Scan(
+			&rest.ID,
+			&rest.StartDate,
+			&rest.EndDate,
+			&rest.RoomID,
+			&rest.ReservationID,
+			&rest.RestrictionID,
+			&rest.CreatedAt,
+			&rest.UpdatedAt,
+		)
+		if err != nil {
+			return restrictions, err
+		}
+		restrictions = append(restrictions, rest)
+	}
+	if err = rows.Err(); err != nil {
+		return restrictions, err
+	}
+
+	return restrictions, nil
 }

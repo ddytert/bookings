@@ -606,6 +606,10 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 		month, _ := strconv.Atoi(r.URL.Query().Get("m"))
 		now = time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	}
+
+	data := make(map[string]interface{})
+	data["now"] = now
+
 	next := now.AddDate(0, 1, 0)
 	last := now.AddDate(0, -1, 0)
 
@@ -624,7 +628,44 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 	stringMap["this_month"] = now.Format("01")
 	stringMap["this_month_year"] = now.Format("2006")
 
+	// Get the first and last days of the month
+	currentYear, currentMonth, _ := now.Date()
+	currentLocation := now.Location()
+	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
+	lastOfMonth := firstOfMonth.AddDate(0, 1, -1)
+
+	intMap := make(map[string]int)
+	intMap["days_in_month"] = lastOfMonth.Day()
+
+	rooms, err := m.DB.SearchAvailibilityForAllRooms(firstOfMonth, lastOfMonth)
+
+	if err != nil {
+		helpers.ServerError(w, err)
+		return
+	}
+
+	data["rooms"] = rooms
+
+	for _, room := range rooms {
+		reservationMap := make(map[string]int)
+		blockMap := make(map[string]int)
+
+		for d := firstOfMonth; d.After(lastOfMonth) == false; d = d.AddDate(0, 0, 1) {
+			reservationMap[d.Format("02.01.2006")] = 0
+			blockMap[d.Format("02.01.2006")] = 0
+		}
+		// get all the restrictions for the current room
+		restrictions, err := m.DB.GetRestrictionsForRoomByDate(room.ID, firstOfMonth, lastOfMonth)
+		if err != nil {
+			helpers.ServerError(w, err)
+			return
+		}
+		m.App.InfoLog.Println(restrictions)
+	}
+
 	render.Template(w, r, "admin-reservations-calendar.page.tmpl", &models.TemplateData{
 		StringMap: stringMap,
+		Data:      data,
+		IntMap:    intMap,
 	})
 }

@@ -68,21 +68,18 @@ func (m *testDBRepo) Authenticate(email, testPassword string) (int, string, erro
 // AllReservations returns a slice of all reservations
 func (m *testDBRepo) AllReservations() ([]models.Reservation, error) {
 	var reservations []models.Reservation
-
 	return reservations, nil
 }
 
 // AllNewReservations returns a slice of all new reservations
 func (m *testDBRepo) AllNewReservations() ([]models.Reservation, error) {
 	var reservations []models.Reservation
-
 	return reservations, nil
 }
 
 // ReservationByID returns a reservation by id
 func (m *testDBRepo) GetReservationByID(reservationID int) (models.Reservation, error) {
 	var reservation models.Reservation
-
 	return reservation, nil
 }
 
@@ -99,4 +96,15 @@ func (m *testDBRepo) DeleteReservation(id int) error {
 // UpdateProcessedForReservation update processed for a reservation by id
 func (m *testDBRepo) UpdateProcessedForReservation(id int, processed int) error {
 	return nil
+}
+
+func (m *testDBRepo) AllRooms() ([]models.Room, error) {
+	var rooms []models.Room
+	return rooms, nil
+}
+
+// GetRestrictionsForRoomByDate gets all restrictions for a given room in the given date range
+func (m *testDBRepo) GetRestrictionsForRoomByDate(roomID int, start, end time.Time) ([]models.RoomRestriction, error) {
+	var restrictions []models.RoomRestriction
+	return restrictions, nil
 }
