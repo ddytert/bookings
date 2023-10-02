@@ -637,7 +637,7 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 	intMap := make(map[string]int)
 	intMap["days_in_month"] = lastOfMonth.Day()
 
-	rooms, err := m.DB.SearchAvailibilityForAllRooms(firstOfMonth, lastOfMonth)
+	rooms, err := m.DB.AllRooms()
 
 	if err != nil {
 		helpers.ServerError(w, err)
@@ -660,7 +660,16 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 			helpers.ServerError(w, err)
 			return
 		}
-		m.App.InfoLog.Println(restrictions)
+		
+		for _, restriction := range restrictions {
+			if restriction.ReservationID > 0 {
+				// It's a reservation
+		
+			} else [
+				// It's a block
+				for d := restriction.StartDate; d.After(restriction.EndDate) == false; 
+			]
+		}
 	}
 
 	render.Template(w, r, "admin-reservations-calendar.page.tmpl", &models.TemplateData{
