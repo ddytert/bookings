@@ -660,16 +660,22 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 			helpers.ServerError(w, err)
 			return
 		}
-		
+
 		for _, restriction := range restrictions {
-			if restriction.ReservationID > 0 {
-				// It's a reservation
-		
-			} else [
-				// It's a block
-				for d := restriction.StartDate; d.After(restriction.EndDate) == false; 
-			]
+			for d := restriction.StartDate; !d.After(restriction.EndDate); d = d.AddDate(0, 0, 1) {
+				if restriction.ReservationID > 0 {
+					// It's a reservation
+					reservationMap[d.Format("02.01.2006")] = restriction.ReservationID
+				} else {
+					// It's a block
+					blockMap[d.Format("02.01.2006")] = restriction.ID
+				}
+			}
 		}
+		data[fmt.Sprintf("reservation_map_%d", room.ID)] = reservationMap
+		data[fmt.Sprintf("block_map_%d", room.ID)] = blockMap
+
+		m.App.Session.Put(r.Context(), fmt.Sprintf("block_map_%d", room.ID), blockMap)
 	}
 
 	render.Template(w, r, "admin-reservations-calendar.page.tmpl", &models.TemplateData{
