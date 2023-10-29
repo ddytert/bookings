@@ -1,0 +1,1 @@
+alias coverage="go test -cover -coverprofile chtml.out && go tool cover -html chtml.out"

@@ -30,6 +30,14 @@ var theTests = []struct {
 	{"mj", "/majors-suite", http.StatusOK},
 	{"sa", "/search-availability", http.StatusOK},
 	{"contact", "/contact", http.StatusOK},
+	{"non-existent route", "/green/red/blue", http.StatusNotFound},
+	// New routes
+	{"login", "/user/login", http.StatusOK},
+	{"logout", "/user/logout", http.StatusOK},
+	{"dashboard", "/admin/dashboard", http.StatusOK},
+	{"new res", "/admin/reservations-new", http.StatusOK},
+	{"all res", "/admin/reservations-all", http.StatusOK},
+	{"show res", "/admin/reservations/new/1/show", http.StatusOK},
 
 	// {"psa", "/search-availability", "POST", []postData{
 	// 	{key: "start", value: "01.01.2023"},
@@ -95,8 +103,8 @@ func TestRepository_Reservation(t *testing.T) {
 	rr = httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, req)
-	if rr.Code != http.StatusTemporaryRedirect {
-		t.Errorf("Reservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("Reservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 	// Test with non-existent room
@@ -111,8 +119,8 @@ func TestRepository_Reservation(t *testing.T) {
 
 	handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusTemporaryRedirect {
-		t.Errorf("Reservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("Reservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 }
@@ -163,8 +171,8 @@ func TestRepository_PostReservation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusTemporaryRedirect {
-		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 	// test for missing post body
@@ -178,8 +186,8 @@ func TestRepository_PostReservation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusTemporaryRedirect {
-		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 	// test for invalid form data
@@ -202,7 +210,7 @@ func TestRepository_PostReservation(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusSeeOther {
-		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 	// Test failing of insertion of reservation into db
@@ -226,8 +234,8 @@ func TestRepository_PostReservation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusTemporaryRedirect {
-		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 	// Test failing of insertion of restriction into db
@@ -244,8 +252,8 @@ func TestRepository_PostReservation(t *testing.T) {
 	rr = httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 
-	if rr.Code != http.StatusTemporaryRedirect {
-		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusTemporaryRedirect)
+	if rr.Code != http.StatusSeeOther {
+		t.Errorf("PostReservation handler returned wrong response code: got %d expected %d", rr.Code, http.StatusSeeOther)
 	}
 
 }
@@ -321,9 +329,81 @@ func TestRepository_AvailabilityJSON(t *testing.T) {
 	if err != nil {
 		t.Error("failed to parse json")
 	}
-	// an database connection error should be given back
+	// a database connection error should be given back
 	if j.Message != "Error connecting to database" {
 		t.Error("Response should conatain Error connecting to database")
+	}
+}
+
+var loginTests = []struct {
+	name               string
+	email              string
+	expectedStatusCode int
+	expectedHTML       string
+	expectedLocation   string
+}{
+	{
+		"valid credentials",
+		"me@here.ca",
+		http.StatusSeeOther,
+		"",
+		"/",
+	},
+	{
+		"invalid ",
+		"fred@furz.com",
+		http.StatusSeeOther,
+		"",
+		"/user/login",
+	},
+	{
+		"invalid data",
+		"j",
+		http.StatusOK,
+		`action="/user/login"`,
+		"",
+	},
+}
+
+func TestRepository_Login(t *testing.T) {
+	// range through all tests
+	for _, e := range loginTests {
+		postedData := url.Values{}
+		postedData.Add("email", e.email)
+		postedData.Add("password", "password")
+
+		// create request
+		req, _ := http.NewRequest("POST", "/user/login", strings.NewReader(postedData.Encode()))
+		ctx := getCtx(req)
+		req = req.WithContext(ctx)
+
+		// set the header
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rr := httptest.NewRecorder()
+
+		// call the handler
+		handler := http.HandlerFunc(Repo.PostShowLogin)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != e.expectedStatusCode {
+			t.Errorf("failed %s: expected code %d, but got %d", e.name, e.expectedStatusCode, rr.Code)
+		}
+
+		if e.expectedLocation != "" {
+			acutalLoc, _ := rr.Result().Location()
+			if acutalLoc.String() != e.expectedLocation {
+				t.Errorf("failed %s: expected location %s, but got location %s", e.name, e.expectedLocation, acutalLoc.String())
+			}
+		}
+
+		// checking for expected values in HTML
+		if e.expectedHTML != "" {
+			// read the response body into a string
+			html := rr.Body.String()
+			if !strings.Contains(html, e.expectedHTML) {
+				t.Errorf("failed %s: expected to find %s but did not", e.name, e.expectedHTML)
+			}
+		}
 	}
 }
 
