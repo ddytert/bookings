@@ -21,6 +21,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+const DATE_LAYOUT = "02.01.2006"
+
 // Repository is the repository type
 type Repository struct {
 	App *config.AppConfig
@@ -83,13 +85,12 @@ func (m *Repository) PostAvailability(w http.ResponseWriter, r *http.Request) {
 	end := r.Form.Get("end")
 
 	// 31.08.2023 -- 01/02 03:04:05PM '06 -0700
-	layout := "02.01.2006"
-	startDate, err := time.Parse(layout, start)
+	startDate, err := time.Parse(DATE_LAYOUT, start)
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
 	}
-	endDate, err := time.Parse(layout, end)
+	endDate, err := time.Parse(DATE_LAYOUT, end)
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
@@ -154,9 +155,8 @@ func (m *Repository) AvailabilityJSON(w http.ResponseWriter, r *http.Request) {
 	start := r.Form.Get("start")
 	end := r.Form.Get("end")
 
-	layout := "02.01.2006"
-	startDate, _ := time.Parse(layout, start)
-	endDate, _ := time.Parse(layout, end)
+	startDate, _ := time.Parse(DATE_LAYOUT, start)
+	endDate, _ := time.Parse(DATE_LAYOUT, end)
 
 	roomID, _ := strconv.Atoi(r.Form.Get("room_id"))
 
@@ -210,9 +210,8 @@ func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 
 	m.App.Session.Put(r.Context(), "reservation", res)
 
-	layout := "02.01.2006"
-	sd := res.StartDate.Format(layout)
-	ed := res.EndDate.Format(layout)
+	sd := res.StartDate.Format(DATE_LAYOUT)
+	ed := res.EndDate.Format(DATE_LAYOUT)
 
 	stringMap := make(map[string]string)
 	stringMap["start_date"] = sd
@@ -258,10 +257,16 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 	if !form.Valid() {
 		data := make(map[string]interface{})
 		data["reservation"] = reservation
+
+		stringMap := make(map[string]string)
+		stringMap["start_date"] = reservation.StartDate.Format(DATE_LAYOUT)
+		stringMap["end_date"] = reservation.EndDate.Format(DATE_LAYOUT)
+
 		m.App.Session.Put(r.Context(), "error", "Form is not valid")
 		render.Template(w, r, "make-reservation.page.tmpl", &models.TemplateData{
-			Form: form,
-			Data: data,
+			Form:      form,
+			Data:      data,
+			StringMap: stringMap,
 		})
 		return
 	}
@@ -296,8 +301,8 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 		Dear %s %s: <br>
 		This is to confirm your reservation from %s to %s.
 	`, reservation.FirstName, reservation.LastName,
-		reservation.StartDate.Format("02.01.2006"),
-		reservation.EndDate.Format("02.01.2006"))
+		reservation.StartDate.Format(DATE_LAYOUT),
+		reservation.EndDate.Format(DATE_LAYOUT))
 
 	msg := models.MailData{
 		To:       reservation.Email,
@@ -314,8 +319,8 @@ func (m *Repository) PostReservation(w http.ResponseWriter, r *http.Request) {
 	Dear Mr. Pommeroy,<br>
 	A reservation has been made for %s from %s to %s.
 `, reservation.Room.RoomName,
-		reservation.StartDate.Format("02.01.2006"),
-		reservation.EndDate.Format("02.01.2006"))
+		reservation.StartDate.Format(DATE_LAYOUT),
+		reservation.EndDate.Format(DATE_LAYOUT))
 
 	msg = models.MailData{
 		To:      "mrpommeroy@deluxepoint.com",
@@ -344,9 +349,8 @@ func (m *Repository) ReservationSummary(w http.ResponseWriter, r *http.Request) 
 	data := make(map[string]interface{})
 	data["reservation"] = reservation
 
-	layout := "02.01.2006"
-	sd := reservation.StartDate.Format(layout)
-	ed := reservation.EndDate.Format(layout)
+	sd := reservation.StartDate.Format(DATE_LAYOUT)
+	ed := reservation.EndDate.Format(DATE_LAYOUT)
 	stringMap := make(map[string]string)
 	stringMap["start_date"] = sd
 	stringMap["end_date"] = ed
@@ -387,13 +391,12 @@ func (m *Repository) BookRoom(w http.ResponseWriter, r *http.Request) {
 	sd := r.URL.Query().Get("s")
 	ed := r.URL.Query().Get("e")
 
-	layout := "02.01.2006"
-	startDate, err := time.Parse(layout, sd)
+	startDate, err := time.Parse(DATE_LAYOUT, sd)
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
 	}
-	endDate, err := time.Parse(layout, ed)
+	endDate, err := time.Parse(DATE_LAYOUT, ed)
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
@@ -683,8 +686,8 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 		blockMap := make(map[string]int)
 
 		for d := firstOfMonth; d.After(lastOfMonth) == false; d = d.AddDate(0, 0, 1) {
-			reservationMap[d.Format("02.01.2006")] = 0
-			blockMap[d.Format("02.01.2006")] = 0
+			reservationMap[d.Format(DATE_LAYOUT)] = 0
+			blockMap[d.Format(DATE_LAYOUT)] = 0
 		}
 		// get all the restrictions for the current room
 		restrictions, err := m.DB.GetRestrictionsForRoomByDate(room.ID, firstOfMonth, lastOfMonth)
@@ -697,10 +700,10 @@ func (m *Repository) AdminReservationsCalendar(w http.ResponseWriter, r *http.Re
 			for d := restriction.StartDate; !d.After(restriction.EndDate); d = d.AddDate(0, 0, 1) {
 				if restriction.ReservationID > 0 {
 					// It's a reservation
-					reservationMap[d.Format("02.01.2006")] = restriction.ReservationID
+					reservationMap[d.Format(DATE_LAYOUT)] = restriction.ReservationID
 				} else {
 					// It's a block
-					blockMap[d.Format("02.01.2006")] = restriction.ID
+					blockMap[d.Format(DATE_LAYOUT)] = restriction.ID
 				}
 			}
 		}
@@ -769,7 +772,7 @@ func (m *Repository) AdminPostReservationsCalendar(w http.ResponseWriter, r *htt
 		if strings.HasPrefix(name, "add_block") {
 			exploded := strings.Split(name, "_")
 			roomID, _ := strconv.Atoi(exploded[2])
-			t, _ := time.Parse("02.01.2006", exploded[3])
+			t, _ := time.Parse(DATE_LAYOUT, exploded[3])
 			// insert a new block
 			err := m.DB.InsertBlockForRoom(roomID, t)
 			if err != nil {
