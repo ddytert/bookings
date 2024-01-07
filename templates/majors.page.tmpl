@@ -41,6 +41,7 @@
 
 {{define "js"}}
 <script>
+    let attention = Prompt();
     document.getElementById("check-availability-button").addEventListener("click", function () {
         SetupCheckAvailibilityButton("2", "{{.CSRFToken}}");  
     });
