@@ -5,3 +5,5 @@ database.yml
 bookings
 coverage.out
 logs/*
+
+
